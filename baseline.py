@@ -9,8 +9,10 @@ import torch
 from transformers import (AutoModelForCausalLM, AutoTokenizer,
                           PreTrainedTokenizerBase)
 from tqdm import tqdm
-from transformers import LlamaConfig, LlamaForCausalLM, LlamaTokenizer
+from transformers import LlamaConfig,LlamaForCausalLM,LlamaTokenizer
 from accelerate import init_empty_weights,infer_auto_device_map,load_checkpoint_in_model,dispatch_model
+import torch
+
 
 def run_hf(
     requests: List[Tuple[str, int, int]],
@@ -18,28 +20,26 @@ def run_hf(
     tokenizer: PreTrainedTokenizerBase,
     trust_remote_code: bool,
 ) -> float:
+    cuda_list = '0,1,2,3,4,5,6,7'.split(',')
+    memory = '18GiB'    
 
-    # llm = AutoModelForCausalLM.from_pretrained(
+    # configs = AutoModelForCausalLM.from_pretrained(
     #     model, torch_dtype=torch.float16, trust_remote_code=trust_remote_code)
-    # if llm.config.model_type == "llama":
-    #     # To enable padding in the HF backend.
-    #     tokenizer.pad_token = tokenizer.eos_token
-    # llm = DataParallel(llm)
-    # llm = llm.cuda()
-    cuda_list = [0,1,2,3,4,5,6,7]
-    memory = '18GiB'
-
+    # if configs.config.model_type == "llama":
     tokenizer.pad_token = tokenizer.eos_token
+    
     no_split_module_classes = LlamaForCausalLM._no_split_modules
 
     max_memory = {int(cuda):memory for cuda in cuda_list}
     config = LlamaConfig.from_pretrained(model_path)
-
     with init_empty_weights():
-        model = LlamaForCausalLM._from_config(config, torch_dtype=torch.float16)
-    
-    device_map = infer_auto_device_map(model, max_memory=max_memory, no_split_module_classes=no_split_module_classes)
-    llm = LlamaForCausalLM.from_pretrained(model_path, torch_dtype=torch.float16, device_map=device_map)
+        model = LlamaForCausalLM._from_config(config, torch_dtype=torch.float16) #torch_dtype=torch.float16这个很重要
+
+    device_map = infer_auto_device_map(model, max_memory=max_memory,no_split_module_classes=no_split_module_classes) #自动划分每个层的设备
+    llm = LlamaForCausalLM.from_pretrained(model_path,device_map=device_map, torch_dtype=torch.float16,use_safetensors=True)
+    # llm = llm.cuda()
+        #     # To enable padding in the HF backend.
+
 
     input_num_tokens = []
     output_num_tokens = []
@@ -110,6 +110,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument('--trust-remote-code',
                         action='store_true',
+                        default=False,
                         help='trust remote code from huggingface')
     parser.add_argument(
         '--dtype',
