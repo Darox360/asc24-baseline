@@ -9,7 +9,7 @@ import torch
 from transformers import (AutoModelForCausalLM, AutoTokenizer,
                           PreTrainedTokenizerBase)
 from tqdm import tqdm
-
+from torch.nn import DataParallel
 
 def run_hf(
     requests: List[Tuple[str, int, int]],
@@ -23,6 +23,7 @@ def run_hf(
     if llm.config.model_type == "llama":
         # To enable padding in the HF backend.
         tokenizer.pad_token = tokenizer.eos_token
+    llm = DataParallel(llm)
     llm = llm.cuda()
 
     input_num_tokens = []
