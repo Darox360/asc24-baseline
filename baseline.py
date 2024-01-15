@@ -22,7 +22,7 @@ def run_hf(
 ) -> float:
     cuda_list = '0,1,2,3,4,5,6,7'.split(',')
     memory = '18GiB'    
-
+    li = []
     # configs = AutoModelForCausalLM.from_pretrained(
     #     model, torch_dtype=torch.float16, trust_remote_code=trust_remote_code)
     # if configs.config.model_type == "llama":
